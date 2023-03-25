@@ -17,28 +17,47 @@ image_label_original.pack()
 # Tạo một label để hiển thị tên ảnh
 text_label_original = tk.Label(root)
 text_label_original.pack()
-def changeContourColor(image, contour, change):
+def changeContourColor(image, n_contour, contour, change):
     
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     # Khởi tạo contour mask zero
     mask = np.zeros(gray.shape, np.uint8)
-
+    n_mask = np.zeros(gray.shape, np.uint8)
     # Vẽ contour trên back ground mask zero
     cv2.drawContours(mask,[contour],0,255,-1)
+    cv2.drawContours(n_mask,[n_contour], 0, 255, -1)
 
     # dùng hàm cv2.findNoneZero() lấy ra toàn bộ các points có giá trị khác 0 là các điểm ở trong contour
-    pixelpoints = cv2.findNonZero(mask)
-
+    pixel = cv2.findNonZero(mask)
+    n_pixel = cv2.findNonZero(n_mask)
     # chuyển ảnh từ BGR sang HSV
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     
     # lăp qua tất cả điểm ở trong contour, lấy màu của điểm đó (dạng HSV) rồi thay đổi 1 chút.(change)
-    for point in pixelpoints:
-        h, s, v = hsv[point[0][1], point[0][0]]
-        hsv[point[0][1], point[0][0]] = np.clip([h,s,v + change], 0, 255)
+    for i in range(len(n_pixel)):
+        h, s, v = hsv[pixel[i][0][1], pixel[i][0][0]]
+        hsv[n_pixel[i][0][1], n_pixel[i][0][0]] = np.clip([h,s,v + change], 0, 255)
     
     # chuyển ảnh về dạng BRG rồi return lại ảnh
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+def resizeContour(contour):
+    # # Chuyển contour đến vị trí mới
+    # M = np.float32([[1, 0, -50], [0, 1, 10]])  # Tạo ma trận chuyển đổi 2D
+    # # Dùng hàm transform để chuyển đổi tọa độ của các điểm trong contour
+    # contour_transformed = cv2.transform(contour, M)
+
+    # Lấy contour đầu tiên và tính toán hình dạng của nó
+    M = cv2.moments(contour)
+    cx = int(M['m10'] / M['m00']) #tổng tọa độ x chia cho diện tích
+    cy = int(M['m01'] / M['m00']) #tổng tọa độ y chia cho diện tích
+
+    # Tính toán tỉ lệ thu nhỏ và tạo ma trận biến đổi
+    scale_percent = 0.5 # tỉ lệ thu nhỏ
+    M = cv2.getRotationMatrix2D((cx, cy), 0, scale_percent)
+
+    # Áp dụng ma trận biến đổi để thu nhỏ contour
+    contour_transformed = cv2.transform(contour, M)
+    return contour_transformed
 
 def changeAllBlack(image, color):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -53,12 +72,12 @@ def changeAllBlack(image, color):
     result[mask != 0] = color  # đổi màu thành màu xám
     return result
 
-def result(image, contour):
+def resultForChangeContourColor(image, contour):
     x, y, w, h = cv2.boundingRect(contour)
     cv2.rectangle(image, (x, y), (x+w, y+h), (0,0,255), 2)
     return image
 
-def result1(image, color):
+def resultForChangeAllBlack(image, color):
     image = changeAllBlack(image, color)
     cv2.putText(image, 'Result: All blacks are dimmed', (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
     cv2.putText(image, 'This image changed black to blue', (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
@@ -154,28 +173,33 @@ def loadOriginalImage():
             area_sort = np.argsort(area_cnt)[::-1]
 
             cnt1 = contours[area_sort[0]]
-            cnt2 = contours[area_sort[1]]
+            if len(contours) == 1:
+                cnt2 = cnt1
+            else:
+                cnt2 = contours[area_sort[1]]
+            doChange(image, cnt1, cnt2)
             
-            img1 = changeAllBlack(image.copy(), (35,35,35))
-            img2 = changeContourColor(image.copy(), cnt1, 30)
-            img3 = changeContourColor(image.copy(), cnt2, -30)
-            img_result1 = result1(img1.copy(), (255,0,0))
-            img_result2 = result(img2.copy(), cnt1)
-            img_result3 = result(img3.copy(), cnt2)
+            
+def doChange(image, cnt1, cnt2):
+    img1 = changeAllBlack(image.copy(), (35,35,35))
+    img2 = changeContourColor(image.copy(), cnt1, cnt1, -30)
+    img3 = changeContourColor(image.copy(), resizeContour(cnt2), resizeContour(cnt2), -10)
+    img_result1 = resultForChangeAllBlack(img1.copy(), (255,0,0))
+    img_result2 = resultForChangeContourColor(img2.copy(), cnt1)
+    img_result3 = resultForChangeContourColor(img3.copy(), resizeContour(cnt2))
 
-            # Convert images to arrays
-            img = np.array(image.copy())
-            img1 = np.array(img1)
-            img2 = np.array(img2)
-            img3 = np.array(img3)
-            img_result1 = np.array(img_result1)
-            img_result2 = np.array(img_result2)
-            img_result3 = np.array(img_result3)
-            # Stack arrays into one array
-            global stacked_array
-            stacked_array = [img, img1, img2, img3, img_result1, img_result2, img_result3]
-            doShow()
-
+    # Convert images to arrays
+    img = np.array(image.copy())
+    img1 = np.array(img1)
+    img2 = np.array(img2)
+    img3 = np.array(img3)
+    img_result1 = np.array(img_result1)
+    img_result2 = np.array(img_result2)
+    img_result3 = np.array(img_result3)
+    # Stack arrays into one array
+    global stacked_array
+    stacked_array = [img, img1, img2, img3, img_result1, img_result2, img_result3]
+    doShow()
 def doShow():
     if len(stacked_array) != 0:
         global app
