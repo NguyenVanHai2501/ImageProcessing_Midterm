@@ -1,5 +1,5 @@
 # ImageProcessing_Midterm
-#<xem bao cao>
+* <xem bao cao>
 Chương trình viết bằng py, có sử dụng một số thư viện của py trong quá trình viết.
 Sau khi clone code về chạy chương trình chính (midterm.py)
 * Tast 1:
