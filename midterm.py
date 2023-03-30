@@ -71,7 +71,37 @@ def changeAllBlack(image, color):
     result = image.copy()
     result[mask != 0] = color  # đổi màu thành màu xám
     return result
+def findDifference(image1, image2):
+    #Grayscale
+    gray1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+    gray2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
 
+    #find the difference
+    diff = cv2.absdiff(gray1, gray2)
+
+    #Apply threshold
+    thresh = cv2.threshold(diff, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+
+    #Dilation
+    kernel = np.ones((7,7), np.uint8)
+    dilate = cv2.dilate(thresh, kernel, iterations=2)
+
+    #Find contours
+    contours = cv2.findContours(dilate.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = imutils.grab_contours(contours)
+
+    max_area = cv2.contourArea(contours[0])
+    max_contour = contours[0]
+
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area > max_area:
+            max_area = area
+            max_contour = cnt
+
+    x, y, w, h = cv2.boundingRect(max_contour)
+    cv2.rectangle(image2, (x, y), (x+w, y+h), (0,0,255), 2)
+    return image2
 def resultForChangeContourColor(image, contour):
     x, y, w, h = cv2.boundingRect(contour)
     cv2.rectangle(image, (x, y), (x+w, y+h), (0,0,255), 2)
